@@ -1,0 +1,12 @@
+{
+  "name": "clubs-hub",
+  "version": "0.1.0",
+  "description": "MVP local de estatísticas de EA FC 27 Clubs para as Américas",
+  "type": "module",
+  "private": true,
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server.js",
+    "mock": "node server.js --mock"
+  }
+}
