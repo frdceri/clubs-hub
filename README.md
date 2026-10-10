@@ -26,18 +26,22 @@ Opções por variável de ambiente: `PORT=4000`, `PLATFORM=common-gen5`.
 ## Como funciona
 
 ```
-navegador  ──>  server.js (localhost)  ──>  proclubs.ea.com/api/fc/...
-                 cache de 5 min,
-                 limpa e traduz os dados
+navegador ──> Vercel (public/ + funções api/) ──> Cloudflare Worker ──> proclubs.ea.com/api/fc/...
+               cache na CDN de 5 min,             (cloudflare/worker.js)
+               limpa e traduz os dados
 ```
 
-A API da EA não aceita chamadas direto de outro site (não envia cabeçalho CORS), por isso o `server.js` faz a ponte. Se a EA cair, ele devolve a última resposta boa que tiver em cache.
+- A API da EA não aceita chamadas direto de outro site (sem CORS), por isso existe o servidor no meio.
+- A EA **bloqueia data centers** (a Vercel recebe 403 da Akamai). Pela rede da Cloudflare ela responde, então as funções chamam a EA através do Worker `clubs-proxy`.
+- Para trocar a ponte, defina `EA_BASE` nas variáveis de ambiente da Vercel. Localmente dá para ir direto: `EA_BASE=https://proclubs.ea.com/api/fc npm start`.
 
 Arquivos:
 
 | Arquivo | Para quê |
 |---|---|
-| `server.js` | servidor HTTP, rotas `/api/*` e arquivos do site |
+| `server.js` | servidor local (opcional), rotas `/api/*` e arquivos do site |
+| `api/` | funções serverless da Vercel |
+| `cloudflare/worker.js` | código da ponte na Cloudflare |
 | `lib/ea.js` | chamadas à EA + cache |
 | `lib/normalize.js` | transforma a resposta crua da EA em dados limpos |
 | `lib/lookups.js` | tabelas de região, posição e archetype — **edite aqui** |
