@@ -130,7 +130,7 @@ let clubState = null;
 async function viewClub(id) {
   loading('Carregando clube…');
   try {
-    clubState = { data: await api(`/api/club/${id}`), tab: 'all', open: null };
+    clubState = { data: await api(`/api/club/${id}`), tab: 'all', open: null, rank: 'rating', scope: 'season' };
     renderClub();
   } catch (err) {
     errorBox(err, () => viewClub(id));
@@ -164,6 +164,8 @@ function renderClub() {
       <div class="stat"><span class="stat-v">${o.unbeatenStreak}</span><span class="stat-l">Invicto há (jogos)</span></div>
       <div class="stat stat-form"><span class="form">${formChips(o.form) || '—'}</span><span class="stat-l">Últimos jogos (recente à esquerda)</span></div>
     </section>` : ''}
+
+    ${bestOfTeam(members)}
 
     <div class="grid-2">
       <section class="panel">
@@ -208,6 +210,8 @@ function renderClub() {
     </section>`;
 
   app.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => { clubState.tab = b.dataset.tab; renderClub(); }));
+  app.querySelectorAll('[data-rank]').forEach((b) => (b.onclick = () => { clubState.rank = b.dataset.rank; renderClub(); }));
+  app.querySelectorAll('[data-scope]').forEach((b) => (b.onclick = () => { clubState.scope = b.dataset.scope; renderClub(); }));
   app.querySelectorAll('[data-match]').forEach((b) => (b.onclick = () => {
     clubState.open = clubState.open === b.dataset.match ? null : b.dataset.match;
     renderClub();
@@ -217,6 +221,86 @@ function renderClub() {
     catch { e.target.textContent = location.href; }
     setTimeout(() => (e.target.textContent = 'Copiar link'), 2000);
   };
+}
+
+// ---------- melhores do time ----------
+const RANKS = {
+  rating: { label: 'Nota', title: 'Melhor nota', get: (s) => s.rating, show: (v) => fmt(v, 1), minGames: true },
+  goals: { label: 'Gols', title: 'Artilheiro', get: (s) => s.goals, show: (v) => fmt(v) },
+  assists: { label: 'Assistências', title: 'Garçom', get: (s) => s.assists, show: (v) => fmt(v) },
+  ga: { label: 'G+A', title: 'Mais participações', get: (s) => s.goals + s.assists, show: (v) => fmt(v) },
+  motm: { label: 'MVPs', title: 'Mais MVPs', get: (s) => s.motm, show: (v) => fmt(v) },
+};
+
+// Números do jogador no recorte escolhido (temporada ou carreira no clube).
+function statsFor(m, scope) {
+  const s = scope === 'career' ? m.career : m;
+  return { games: s.games || 0, goals: s.goals || 0, assists: s.assists || 0, motm: s.motm || 0, rating: s.rating };
+}
+
+function rankPlayers(members, scope, key) {
+  const def = RANKS[key];
+  const rows = members.map((m) => ({ m, s: statsFor(m, scope) })).filter((r) => r.s.games > 0);
+  // Para nota, exige um mínimo de jogos para quem jogou 1 partida com 10 não liderar.
+  const maxGames = Math.max(0, ...rows.map((r) => r.s.games));
+  const minGames = def.minGames ? Math.max(3, Math.ceil(maxGames * 0.25)) : 0;
+  const eligible = rows.filter((r) => r.s.games >= minGames && def.get(r.s) != null);
+  eligible.sort((a, b) => def.get(b.s) - def.get(a.s) || b.s.games - a.s.games);
+  return { list: eligible, minGames, left: rows.length - eligible.length };
+}
+
+function bestOfTeam(members) {
+  if (!members.length) return '';
+  const { rank, scope } = clubState;
+  const leaders = ['goals', 'assists', 'rating', 'motm'].map((k) => ({ k, top: rankPlayers(members, scope, k).list[0] }));
+  const { list, minGames, left } = rankPlayers(members, scope, rank);
+  const def = RANKS[rank];
+  const best = list.length ? def.get(list[0].s) : 0;
+  const scopeLabel = scope === 'career' ? 'carreira no clube' : 'temporada';
+
+  return `
+    <section class="panel best">
+      <div class="panel-head">
+        <div><h2>Melhores do time</h2><p class="muted small">Números da ${scopeLabel}, direto da EA.</p></div>
+        <div class="seg" role="group" aria-label="Período">
+          <button data-scope="season" class="${scope === 'season' ? 'on' : ''}">Temporada</button>
+          <button data-scope="career" class="${scope === 'career' ? 'on' : ''}">Carreira</button>
+        </div>
+      </div>
+
+      <div class="leaders">${leaders.map(({ k, top }) => `
+        <button class="leader ${rank === k ? 'on' : ''}" data-rank="${k}" aria-pressed="${rank === k}">
+          <span class="leader-title">${RANKS[k].title}</span>
+          ${top ? `
+            <span class="leader-v">${RANKS[k].show(RANKS[k].get(top.s))}</span>
+            <span class="leader-name">${esc(top.m.gamertag)}</span>
+            <span class="muted small">${esc(top.m.position)} · ${top.s.games} jogos</span>`
+          : '<span class="muted small">Sem dados</span>'}
+        </button>`).join('')}
+      </div>
+
+      <div class="rank-head">
+        <div class="seg" role="tablist" aria-label="Ordenar ranking por">
+          ${Object.entries(RANKS).map(([k, d]) => `<button data-rank="${k}" class="${rank === k ? 'on' : ''}">${d.label}</button>`).join('')}
+        </div>
+        ${minGames ? `<span class="muted small">Mínimo de ${minGames} jogos para entrar no ranking de nota${left ? ` (${left} de fora)` : ''}.</span>` : ''}
+      </div>
+
+      ${list.length ? `<ol class="rank-list">${list.map((r, i) => {
+        const v = def.get(r.s);
+        const width = best > 0 ? Math.max(4, Math.round((v / best) * 100)) : 0;
+        return `
+          <li class="rank-row ${i < 3 ? `podium p${i + 1}` : ''}">
+            <span class="rank-pos">${i + 1}</span>
+            <span class="rank-who">
+              <strong>${esc(r.m.gamertag)}</strong>
+              <span class="muted small">${esc(r.m.position)} · ${r.s.games} J · ${r.s.goals} G · ${r.s.assists} A · ${r.s.motm} MVP</span>
+            </span>
+            <span class="rank-bar" aria-hidden="true"><span style="width:${width}%"></span></span>
+            <span class="rank-v">${def.show(v)}</span>
+          </li>`;
+      }).join('')}</ol>` : '<p class="empty">Ninguém com jogos suficientes nesse recorte.</p>'}
+    </section>`;
 }
 
 function ratingBadge(r) {
