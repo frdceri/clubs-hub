@@ -209,7 +209,7 @@ function renderClub() {
             <div class="bar"><span style="width:${Math.round((a.appearances / archetypes[0].appearances) * 100)}%"></span></div>
             <div class="muted small">${a.goals} G · ${a.assists} A · ${a.players.map(esc).join(', ')}</div>
           </li>`).join('')}</ul>
-          <p class="note">A EA só envia o número do archetype. O nome real de cada número ainda precisa ser confirmado no jogo.</p>`
+          <p class="note">A EA envia só o número do archetype; os nomes foram deduzidos da ordem oficial e conferidos com partidas reais.</p>`
         : '<p class="empty">Sem partidas para analisar.</p>'}
       </section>
     </div>
