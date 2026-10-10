@@ -13,7 +13,18 @@ const store = {
   get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* sem storage */ } },
 };
+const REGIONS = {
+  americas: 'Américas',
+  sam: 'América do Sul',
+  cam: 'América Central / México',
+  usa: 'EUA',
+  europe: 'Europa',
+  other: 'Outras regiões',
+  all: 'Todas as regiões',
+};
 let region = store.get('region', 'americas');
+if (!REGIONS[region]) region = 'americas';
+const inRegionText = () => (region === 'all' ? '' : ` em ${REGIONS[region]}`);
 
 async function api(path) {
   const res = await fetch(path);
@@ -44,14 +55,18 @@ function errorBox(err, retry) {
   if (retry) document.getElementById('retry').onclick = retry;
 }
 
-function regionToggle() {
-  return `<div class="seg" role="group" aria-label="Filtrar região">
-    <button data-region="americas" class="${region === 'americas' ? 'on' : ''}">Américas</button>
-    <button data-region="all" class="${region === 'all' ? 'on' : ''}">Todas as regiões</button>
-  </div>`;
+// Menu de região, com quantos clubes caem em cada uma (quando a API informa).
+function regionMenu(counts = {}) {
+  return `<label class="region-menu">
+    <span class="region-menu-label">Região</span>
+    <select id="region-select">
+      ${Object.entries(REGIONS).map(([k, label]) => `<option value="${k}" ${region === k ? 'selected' : ''}>${label}${counts[k] != null ? ` (${counts[k]})` : ''}</option>`).join('')}
+    </select>
+  </label>`;
 }
-function bindRegionToggle(rerender) {
-  app.querySelectorAll('[data-region]').forEach((b) => (b.onclick = () => { region = b.dataset.region; store.set('region', region); rerender(); }));
+function bindRegionMenu(rerender) {
+  const sel = document.getElementById('region-select');
+  if (sel) sel.onchange = () => { region = sel.value; store.set('region', region); rerender(); };
 }
 
 // ---------- telas ----------
@@ -59,7 +74,7 @@ async function viewHome() {
   document.title = 'Clubs Hub · Estatísticas de Clubs FC 27';
   loading('Carregando ranking…');
   try {
-    const { rows, total } = await api(`/api/leaderboard?region=${region}`);
+    const { rows, total, counts } = await api(`/api/leaderboard?region=${region}`);
     app.innerHTML = `
       <section class="hero">
         <p class="eyebrow">EA FC 27 · Clubs</p>
@@ -70,9 +85,9 @@ async function viewHome() {
         <div class="panel-head">
           <div>
             <h2>Ranking geral</h2>
-            <p class="muted">Top ${total} global da EA${region === 'americas' ? `, mostrando só clubes das Américas (${rows.length})` : ''}.</p>
+            <p class="muted">Top ${total} global da EA${region === 'all' ? '' : `, mostrando ${rows.length}${inRegionText()}`}.</p>
           </div>
-          ${regionToggle()}
+          ${regionMenu(counts)}
         </div>
         ${rows.length ? `
         <div class="table-wrap"><table class="table">
@@ -88,9 +103,9 @@ async function viewHome() {
               <td class="num hide-sm">${r.goalsFor - r.goalsAgainst > 0 ? '+' : ''}${r.goalsFor - r.goalsAgainst}</td>
             </tr>`).join('')}
           </tbody>
-        </table></div>` : '<p class="empty">Nenhum clube das Américas no top global agora. Use a busca para achar o seu.</p>'}
+        </table></div>` : `<p class="empty">Nenhum clube${inRegionText()} no top 100 global agora. Use a busca para achar o seu.</p>`}
       </section>`;
-    bindRegionToggle(viewHome);
+    bindRegionMenu(viewHome);
     bindRowLinks();
   } catch (err) {
     errorBox(err, viewHome);
@@ -102,12 +117,12 @@ async function viewSearch(q) {
   searchInput.value = q;
   loading(`Buscando “${q}”…`);
   try {
-    const { clubs } = await api(`/api/search?q=${encodeURIComponent(q)}&region=${region}`);
+    const { clubs, counts } = await api(`/api/search?q=${encodeURIComponent(q)}&region=${region}`);
     app.innerHTML = `
       <section class="panel">
         <div class="panel-head">
-          <div><h2>Resultados para “${esc(q)}”</h2><p class="muted">${clubs.length} clube(s)${region === 'americas' ? ' nas Américas' : ''}.</p></div>
-          ${regionToggle()}
+          <div><h2>Resultados para “${esc(q)}”</h2><p class="muted">${clubs.length} clube(s)${inRegionText()}.</p></div>
+          ${regionMenu(counts)}
         </div>
         ${clubs.length ? `<div class="cards">${clubs.map((c) => `
           <a class="club-card" href="#/clube/${c.id}">
@@ -118,9 +133,9 @@ async function viewSearch(q) {
               <span class="muted small">${c.games} jogos · ${c.wins}V ${c.draws}E ${c.losses}D · ${c.goalsFor}:${c.goalsAgainst}</span>
             </span>
           </a>`).join('')}</div>`
-        : `<p class="empty">Nada encontrado. ${region === 'americas' ? 'Tente “Todas as regiões” ou ' : 'Tente '}outro trecho do nome.</p>`}
+        : `<p class="empty">Nada encontrado${inRegionText()}. ${region === 'all' ? 'Tente ' : 'Mude a região no menu ou tente '}outro trecho do nome.</p>`}
       </section>`;
-    bindRegionToggle(() => viewSearch(q));
+    bindRegionMenu(() => viewSearch(q));
   } catch (err) {
     errorBox(err, () => viewSearch(q));
   }
