@@ -79,7 +79,7 @@ async function viewHome() {
       <section class="hero">
         <p class="eyebrow">EA FC 27 · Clubs</p>
         <h1>Estatísticas do seu clube,<br />sem planilha.</h1>
-        <p class="lede">Busque um clube para ver elenco, forma, partidas recentes e quais archetypes cada jogador usou.</p>
+        <p class="lede">Busque um clube para ver elenco, forma, partidas recentes e qual arquétipo cada jogador usou.</p>
       </section>
       <section class="panel">
         <div class="panel-head">
@@ -202,14 +202,14 @@ function renderClub() {
       </section>
 
       <section class="panel">
-        <div class="panel-head"><h2>Archetypes usados</h2><span class="muted small">nas ${matches.length} partidas carregadas</span></div>
+        <div class="panel-head"><h2>Arquétipos usados</h2><span class="muted small">nas ${matches.length} partidas carregadas</span></div>
         ${archetypes.length ? `<ul class="arch-list">${archetypes.map((a) => `
           <li>
-            <div class="arch-top"><strong>${esc(a.archetype)}</strong><span class="muted small">${a.appearances} aparições · nota ${fmt(a.avgRating, 2)}</span></div>
+            <div class="arch-top"><span><strong title="${esc(a.archetypeEn)}">${esc(a.archetype)}</strong>${a.archetypeEn && a.archetypeEn !== a.archetype ? ` <span class="muted small">${esc(a.archetypeEn)}</span>` : ''}</span><span class="muted small">${a.appearances} aparições · nota ${fmt(a.avgRating, 2)}</span></div>
             <div class="bar"><span style="width:${Math.round((a.appearances / archetypes[0].appearances) * 100)}%"></span></div>
             <div class="muted small">${a.goals} G · ${a.assists} A · ${a.players.map(esc).join(', ')}</div>
           </li>`).join('')}</ul>
-          <p class="note">A EA envia só o número do archetype; os nomes foram deduzidos da ordem oficial e conferidos com partidas reais.</p>`
+          <p class="note">A EA envia só o número do arquétipo; os nomes foram deduzidos da ordem oficial e conferidos com partidas reais (em cinza, o nome em inglês dos guias).</p>`
         : '<p class="empty">Sem partidas para analisar.</p>'}
       </section>
     </div>
@@ -344,11 +344,11 @@ function lineup(side) {
   return `<div class="lineup">
     <h3>${crest(side, 'xs')} ${esc(side.name)}</h3>
     <div class="table-wrap"><table class="table table-tight">
-      <thead><tr><th>Jogador</th><th>Archetype</th><th class="num">Nota</th><th class="num">G</th><th class="num">A</th><th class="num hide-sm">Chutes</th><th class="num hide-sm">Passe</th><th class="num hide-sm">Desarmes</th></tr></thead>
+      <thead><tr><th>Jogador</th><th>Arquétipo</th><th class="num">Nota</th><th class="num">G</th><th class="num">A</th><th class="num hide-sm">Chutes</th><th class="num hide-sm">Passe</th><th class="num hide-sm">Desarmes</th></tr></thead>
       <tbody>${side.players.map((p) => `
         <tr>
           <td><span class="player"><strong>${esc(p.gamertag)}${p.motm ? ' <span class="mvp" title="Melhor em campo">MVP</span>' : ''}${p.redCard ? ' <span class="red" title="Cartão vermelho"></span>' : ''}</strong><span class="muted small">${esc(p.role)}${p.dnf ? ' · saiu antes' : ''}${p.saves ? ` · ${p.saves} defesas` : ''}</span></span></td>
-          <td><span class="arch-pill">${esc(p.archetype)}</span></td>
+          <td><span class="arch-pill" title="${esc(p.archetypeEn)}">${esc(p.archetype)}</span></td>
           <td class="num">${ratingBadge(p.rating)}</td>
           <td class="num">${p.goals || ''}</td>
           <td class="num">${p.assists || ''}</td>
